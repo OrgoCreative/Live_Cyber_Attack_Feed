@@ -1,0 +1,31 @@
+name: update-threat-feed
+
+# Runs on a schedule and writes public/attacks.json back to the repo.
+# It needs exactly ONE permission: write access to THIS repo's contents (to save the JSON).
+# No secrets are used or required.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 minutes (GitHub may delay a few min; that's fine)
+  workflow_dispatch: {}       # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write             # the ONLY permission granted
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build feed
+        run: python scripts/build_feed.py
+      - name: Commit if changed
+        run: |
+          git config user.name  "threat-feed-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add public/attacks.json
+          git commit -m "update threat feed [skip ci]" || echo "no changes"
+          git push
