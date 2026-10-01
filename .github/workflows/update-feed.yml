@@ -7,7 +7,7 @@ name: update-threat-feed
 on:
   schedule:
     - cron: "*/30 * * * *"   # every 30 minutes (GitHub may delay a few min; that's fine)
-  workflow_dispatch: {}       # lets you run it manually from the Actions tab
+  workflow_dispatch: {}
 
 permissions:
   contents: write             # the ONLY permission granted
@@ -27,5 +27,18 @@ jobs:
           git config user.name  "threat-feed-bot"
           git config user.email "actions@users.noreply.github.com"
           git add public/attacks.json
-          git commit -m "update threat feed [skip ci]" || echo "no changes"
-          git push
+          if git diff --cached --quiet; then
+            echo "no changes"
+            exit 0
+          fi
+          git commit -m "update threat feed [skip ci]"
+          # GitHub sometimes rejects the push with a 500. Retry before failing the run.
+          for i in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            echo "push failed (attempt $i), retrying in 20s"
+            sleep 20
+          done
+          echo "push failed after 5 attempts"
+          exit 1
